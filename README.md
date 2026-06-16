@@ -55,11 +55,13 @@ Notable observations from building and running this suite:
 
 - **REST Countries v3.1 was deprecated mid-project.** The original suite targeted it; a full test run surfaced that every call now returns a deprecation/migration notice instead of country data. The failing tests caught this immediately, which is the point of having them. I migrated to PokeAPI.
 
-<!-- FILL IN THE REST AFTER YOU RUN THE POKEAPI SUITE. List 2-3 real observations. Examples of the KIND of thing to record (replace with what you actually see):
-- PokeAPI returns a plain-text "Not Found" body on 404, not JSON — so a client that assumes JSON on every response crashes. Open-Meteo, by contrast, returns a structured JSON error with a "reason" field.
-- A single Pokemon lookup returns an object; the list endpoint returns a paginated wrapper with count/results.
-- Pokemon name lookups are case-sensitive: 'ditto' returns 200, 'Ditto' returns [whatever you actually observe].
--->
+- **The two APIs report errors in completely different formats.** PokeAPI returns a plain-text "Not Found" body on a 404 — calling `.json()` on it raises an error, so a client that assumes every response is JSON would crash. Open-Meteo, by contrast, returns a structured JSON object on a 400 with a `reason` field explaining the problem. Code written to parse one API's errors would break on the other's. This is the kind of mismatch that causes real integration bugs.
+
+- **A single PokeAPI lookup and a list query return different shapes.** Fetching one Pokemon (`/pokemon/ditto`) returns a single object, while the list endpoint (`/pokemon`) returns a paginated wrapper with `count` and `results` fields. A client has to expect a different shape depending on which endpoint it calls.
+
+- **Tests passed locally but timed out in CI against Open-Meteo.** On the first CI run, the five Open-Meteo tests that wait for a real forecast failed with read timeouts, while the same tests passed reliably from a home connection. Public APIs can respond more slowly to CI runners (data-center IPs) than to a normal client. The fix was to make the shared client resilient: a longer timeout plus automatic retries on transient network errors (timeouts and connection failures), while still NOT retrying real HTTP error responses, since those are answers the tests need to see. This is the difference between "the API is slow right now" and "the API is broken."
+
+- **The `types` field is variable-length.** Bulbasaur has two types; Ditto has one. Code that assumed a fixed number of types would break on one or the other — a small but concrete reason to test against real, irregular records instead of a single "typical" example.
 
 ## What I'd add next
 
